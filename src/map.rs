@@ -1,6 +1,6 @@
-use std::{collections::HashMap, fmt::Display, sync::mpsc::Receiver};
 use noise::{NoiseFn, Perlin, Seedable};
-use rand::{Rng, thread_rng};
+use rand::{thread_rng, Rng};
+use std::{collections::HashMap, fmt::Display, sync::mpsc::Receiver};
 
 use crate::{renderer::Renderer, Message, NB_ROBOTS};
 
@@ -48,8 +48,7 @@ pub fn initialize_map() -> Map2D {
     let mut rng = thread_rng(); // Create a random number generator
     let random_seed = rng.gen(); // Generate a random seed
 
-    let perlin = Perlin::new();
-    perlin.set_seed(random_seed);
+    let perlin = Perlin::new().set_seed(random_seed);
 
     let mut map = vec![vec![CellType::Blank; MAX_WIDTH as usize]; MAX_HEIGHT as usize];
 
@@ -61,7 +60,8 @@ pub fn initialize_map() -> Map2D {
             } else {
                 // Inside the border, use Perlin noise to decide placement of obstacles
                 let noise_value = perlin.get([x as f64 / 10.0, y as f64 / 10.0]); // Scale to reduce noise frequency
-                if noise_value > 0.5 { // Threshold for placing an obstacle
+                if noise_value > 0.5 {
+                    // Threshold for placing an obstacle
                     map[y][x] = CellType::Obstacle;
                 } else {
                     map[y][x] = CellType::Blank;
@@ -92,15 +92,18 @@ pub fn update_and_draw_map(
     renderer: &dyn Renderer,
 ) {
     if let Ok(Message::NewPosition { id, dx, dy }) = rx.recv() {
-        update_positions_map(positions, map, id, dx, dy);
+        let mut display_map = map.clone();
+        update_positions_map(positions, map, &mut display_map, id, dx, dy);
+
         renderer.clean();
-        renderer.draw_map(map);
+        renderer.draw_map(&display_map);
     }
 }
 
 pub fn update_positions_map(
     positions: &mut HashMap<u32, Position>,
     map: &mut Map2D,
+    display_map: &mut Map2D,
     id: u32,
     dx: i32,
     dy: i32,
@@ -110,18 +113,22 @@ pub fn update_positions_map(
         position.1 = (position.1 + dy).clamp(MIN_HEIGHT, MAX_HEIGHT - 1);
     }
 
+    for (id, position) in positions {
+        display_map[position.0 as usize][position.1 as usize] = CellType::Robot(*id);
+    }
+
     //clean_map(map);
-    for row in map.iter_mut() {
+    /*for row in map.iter_mut() {
         for cell in row.iter_mut() {
             if *cell != CellType::Obstacle {
                 *cell = CellType::Blank;
             }
         }
-    }
-    for (&id, &(x, y)) in positions.iter() {
+    }*/
+    /*for (&id, &(x, y)) in positions.iter() {
         map[y as usize][x as usize] = match id {
             0..=4 => CellType::Robot(id),
             _ => unimplemented!(),
         };
-    }
+    }*/
 }
