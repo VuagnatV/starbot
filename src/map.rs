@@ -1,5 +1,5 @@
 use noise::{NoiseFn, Perlin, Seedable};
-use rand::{thread_rng, Rng};
+use rand::{thread_rng, Rng, seq::SliceRandom};
 use std::{collections::HashMap, fmt::Display, sync::mpsc::Receiver};
 
 use crate::{renderer::Renderer, Message, NB_ROBOTS};
@@ -43,10 +43,12 @@ pub const MAX_HEIGHT: i32 = 20;
 pub const MAX_WIDTH: i32 = 20;
 pub const MIN_HEIGHT: i32 = 0;
 pub const MIN_WEIGHT: i32 = 0;
+pub const NUM_MINERAI: usize = 5; 
+pub const NUM_ENERGIE: usize = 5;
 
 pub fn initialize_map() -> Map2D {
-    let mut rng = thread_rng(); // Create a random number generator
-    let random_seed = rng.gen(); // Generate a random seed
+    let mut rng = thread_rng();
+    let random_seed = rng.gen();
 
     let perlin = Perlin::new().set_seed(random_seed);
 
@@ -54,19 +56,38 @@ pub fn initialize_map() -> Map2D {
 
     for y in 0..MAX_HEIGHT as usize {
         for x in 0..MAX_WIDTH as usize {
-            // Set the border cells to obstacles
             if y == 0 || y == MAX_HEIGHT as usize - 1 || x == 0 || x == MAX_WIDTH as usize - 1 {
                 map[y][x] = CellType::Obstacle;
             } else {
-                // Inside the border, use Perlin noise to decide placement of obstacles
-                let noise_value = perlin.get([x as f64 / 10.0, y as f64 / 10.0]); // Scale to reduce noise frequency
+                let noise_value = perlin.get([x as f64 / 10.0, y as f64 / 10.0]);
                 if noise_value > 0.5 {
-                    // Threshold for placing an obstacle
                     map[y][x] = CellType::Obstacle;
                 } else {
                     map[y][x] = CellType::Blank;
                 }
             }
+        }
+    }
+    let mut available_positions = Vec::new();
+    for y in 1..(MAX_HEIGHT as usize - 1) {
+        for x in 1..(MAX_WIDTH as usize - 1) {
+            if map[y][x] == CellType::Blank {
+                available_positions.push((x, y));
+            }
+        }
+    }
+    available_positions.shuffle(&mut rng);
+    if let Some((x, y)) = available_positions.pop() {
+        map[y][x] = CellType::Base;
+    }
+    for _ in 0..NUM_MINERAI {
+        if let Some((x, y)) = available_positions.pop() {
+            map[y][x] = CellType::Minerai;
+        }
+    }
+    for _ in 0..NUM_ENERGIE {
+        if let Some((x, y)) = available_positions.pop() {
+            map[y][x] = CellType::Energie;
         }
     }
     map
@@ -116,19 +137,4 @@ pub fn update_positions_map(
     for (id, position) in positions {
         display_map[position.0 as usize][position.1 as usize] = CellType::Robot(*id);
     }
-
-    //clean_map(map);
-    /*for row in map.iter_mut() {
-        for cell in row.iter_mut() {
-            if *cell != CellType::Obstacle {
-                *cell = CellType::Blank;
-            }
-        }
-    }*/
-    /*for (&id, &(x, y)) in positions.iter() {
-        map[y as usize][x as usize] = match id {
-            0..=4 => CellType::Robot(id),
-            _ => unimplemented!(),
-        };
-    }*/
 }
