@@ -2,7 +2,14 @@ use noise::{NoiseFn, Perlin, Seedable};
 use rand::{thread_rng, Rng, seq::SliceRandom};
 use std::{collections::HashMap, fmt::Display, sync::mpsc::Receiver};
 
-use crate::{renderer::Renderer, Message, NB_ROBOTS};
+
+use crate::renderer::Renderer;
+use crate::message::Message;
+use crate::NB_ROBOTS;
+
+
+
+
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CellType {

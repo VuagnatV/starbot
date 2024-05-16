@@ -1,28 +1,22 @@
-use map::{initialize_map, initialize_positions, update_and_draw_map};
+use starbot::map::{initialize_map, initialize_positions, update_and_draw_map};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
-use renderer::TerminalRenderer;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
 use std::time::Duration;
 use tracing::trace;
-use utils::configure_logger;
+use starbot::utils::configure_logger;
 
-mod map;
-mod renderer;
-mod utils;
+use starbot::renderer::TerminalRenderer;
+use starbot::message::Message;
+use starbot::NB_ROBOTS;
 
-pub const NB_ROBOTS: u32 = 5;
+
 const TICK_DURATION: Duration = Duration::from_millis(10);
 
 #[derive(Debug)]
 enum Command {
     Move,
-}
-
-#[derive(Debug)]
-enum Message {
-    NewPosition { id: u32, dx: i32, dy: i32 },
 }
 
 fn update_position(id: u32, command_rx: Receiver<Command>, tx: Sender<Message>) {
