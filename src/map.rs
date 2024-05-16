@@ -1,5 +1,5 @@
 use noise::{NoiseFn, Perlin, Seedable};
-use rand::{thread_rng, Rng, seq::SliceRandom};
+use rand::{seq::SliceRandom, thread_rng, Rng};
 use std::{collections::HashMap, fmt::Display, sync::mpsc::Receiver};
 
 
@@ -25,14 +25,13 @@ impl Display for CellType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let c = match self {
             CellType::Blank => ' ',
-            CellType::Robot(id) => match id {
-                0 => '@',
-                1 => '%',
-                2 => '#',
-                3 => '*',
-                4 => '+',
-                _ => unimplemented!(),
-            },
+            CellType::Robot(id) => {
+                if (0..10).contains(id) {
+                    (48 + *id as u8) as char
+                } else {
+                    '?'
+                }
+            }
             CellType::Obstacle => 'X',
             CellType::Base => 'B',
             CellType::Energie => 'E',
@@ -50,7 +49,7 @@ pub const MAX_HEIGHT: i32 = 20;
 pub const MAX_WIDTH: i32 = 20;
 pub const MIN_HEIGHT: i32 = 0;
 pub const MIN_WEIGHT: i32 = 0;
-pub const NUM_MINERAI: usize = 5; 
+pub const NUM_MINERAI: usize = 5;
 pub const NUM_ENERGIE: usize = 5;
 
 pub fn initialize_map() -> Map2D {
