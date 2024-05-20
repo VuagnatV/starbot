@@ -162,17 +162,62 @@ impl Map {
     }
 }
 
+struct Base {
+    position: (usize, usize),
+    map: Arc<Mutex<Vec<Vec<Cell>>>>,
+    collected_resources: Vec<Cell>,
+}
+
+impl Base {
+    fn new(position: (usize, usize), map: Arc<Mutex<Vec<Vec<Cell>>>>) -> Self {
+        Base {
+            position,
+            map,
+            collected_resources: Vec::new(),
+        }
+    }
+
+    fn add_resource(&mut self, resource: Cell) {
+        self.collected_resources.push(resource);
+    }
+
+    fn display_resources(&self) {
+        let mut resource_count = [0; 3];
+        for resource in &self.collected_resources {
+            match resource {
+                Cell::Mineral => resource_count[0] += 1,
+                Cell::Energy => resource_count[1] += 1,
+                Cell::SciencePOI => resource_count[2] += 1,
+                _ => {}
+            }
+        }
+        println!(
+            "Base at position {:?} has collected the following resources:",
+            self.position
+        );
+        println!("Minerals: {}", resource_count[0]);
+        println!("Energy: {}", resource_count[1]);
+        println!("Scientific Points of Interest: {}", resource_count[2]);
+    }
+}
+
 struct Robot {
     id: usize,
     position: (usize, usize),
     map: Map,
     personal_map: Vec<Vec<Cell>>,
     base_map: Arc<Mutex<Vec<Vec<Cell>>>>,
+    base: Arc<Mutex<Base>>,
     carrying: Option<Cell>,
 }
 
 impl Robot {
-    fn new(id: usize, map: Map, base_map: Arc<Mutex<Vec<Vec<Cell>>>>) -> Self {
+    fn new(
+        id: usize,
+        map: Map,
+        base_map: Arc<Mutex<Vec<Vec<Cell>>>>,
+        base: Arc<Mutex<Base>>,
+    ) -> Self {
         let position = map.find_base_position().unwrap();
         map.update_position(id, position);
         let mut personal_map = vec![vec![Cell::Unknown; MAP_WIDTH]; MAP_HEIGHT];
@@ -183,6 +228,7 @@ impl Robot {
             map,
             personal_map,
             base_map,
+            base,
             carrying: None,
         }
     }
@@ -199,6 +245,9 @@ impl Robot {
                 if self.personal_map[y][x] == Cell::Unknown && base_map[y][x] != Cell::Unknown {
                     self.personal_map[y][x] = base_map[y][x];
                 }
+                if self.personal_map[y][x] == Cell::Empty && base_map[y][x] != Cell::Empty {
+                    self.personal_map[y][x] = base_map[y][x];
+                }
             }
         }
     }
@@ -208,6 +257,9 @@ impl Robot {
         for y in 0..MAP_HEIGHT {
             for x in 0..MAP_WIDTH {
                 if base_map[y][x] == Cell::Unknown && self.personal_map[y][x] != Cell::Unknown {
+                    base_map[y][x] = self.personal_map[y][x];
+                }
+                if base_map[y][x] == Cell::Empty && self.personal_map[y][x] != Cell::Empty {
                     base_map[y][x] = self.personal_map[y][x];
                 }
             }
@@ -225,6 +277,8 @@ impl Robot {
             let _ = write!(map_display, "\n");
         }
         print!("{}\n", map_display);
+        let base = self.base.lock().unwrap();
+        //base.display_resources();
     }
 }
 
@@ -271,12 +325,17 @@ impl Handler<Start> for Robot {
             if act.map.grid.lock().unwrap()[new_position.1][new_position.0] == Cell::Base {
                 act.update_base_map();
                 act.merge_maps();
+
+                if let Some(resource) = act.carrying.take() {
+                    let mut base = act.base.lock().unwrap();
+                    base.add_resource(resource);
+                }
             }
 
             act.update_personal_map(new_position);
 
             act.map.display();
-            //act.display_base_map();
+            act.display_base_map();
         });
     }
 }
@@ -288,10 +347,11 @@ async fn main() {
     let base_map = Arc::new(Mutex::new(vec![vec![Cell::Unknown; MAP_WIDTH]; MAP_HEIGHT]));
     let base_position = map.find_base_position().unwrap();
     base_map.lock().unwrap()[base_position.1][base_position.0] = Cell::Base;
+    let base = Arc::new(Mutex::new(Base::new(base_position, base_map.clone())));
     let mut robots = vec![];
 
     for id in 1..=num_robots {
-        let robot = Robot::new(id, map.clone(), base_map.clone()).start();
+        let robot = Robot::new(id, map.clone(), base_map.clone(), base.clone()).start();
         robot.do_send(Start);
         robots.push(robot);
     }
