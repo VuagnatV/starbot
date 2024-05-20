@@ -1,8 +1,4 @@
-# Architecture Decision Record Starbot <!-- Replace with ADR title -->
-
-This is a template for EdgeX Foundry ADR.
-Ceci est l'Architecture Decision Record du projet Starbot sous le language Rust
-
+# Architecture Decision Record Starbot
 
 ### Submitters
 
@@ -15,16 +11,8 @@ M2 Dev Manager Full Stack
 
 ## Change Log
 
-List the changes to the document, incl. state, date, and PR URL.
-
-State is one of: pending, approved, amended, deprecated.
-
-Date is an ISO 8601 (YYYY-MM-DD) string.
-
-PR is the pull request that submitted the change, including information such as the diff, contributors, and reviewers.
-
-Format:
-
+- \[Ajout des tests et modification de l'index \] 2024-05-20
+- \[Ajout de l'index et fix merge de la map \] 2024-05-20
 - \[Modification pour split le main \] 2024-05-20
 - \[Ajout du stockage de la map ainsi que fix de la map \] 2024-05-20
 - \[Ajout du système de retrait des ressources \] 2024-05-20
@@ -53,58 +41,21 @@ Commande:
 
 ## Context
 
-Describe:
-
-- how the design is architecturally significant - warranting an ADR (versus simple issue and PR to fix a problem)
-
-- the high level design approach (details described in the proposed design below)
+L'objectif du projet est de créer un essaim de robot autonome spécialisés pour l'exploration spatiale et la recherche astrobiologique. Ces robots collaborent pour mener des missions d'exploration et de recherche sur des corps céleste(planètes, lunes, astéroïdes) afin de recueillir des données sur la géologie, la chimie ainsi que les potentiels signes de vie.
 
 
 ## Proposed Design
 
 Outline:
 
-- services/modules to be impacted (changed)
+- Des robots autonomes capable de se déplacer, de récolter des énergies ainsi que des ressources et de pouvoir cartographier la carte. Il peuvent ramener ces informations à la Base.
 
-- new services/modules to be added
+- La Base permet de recueillir les informations de la map par les robot ainsi que de recevoir les énergies ainsi que les minerais.
 
-- model and DTO impact (changes/additions/removals)
-
-- API impact (changes/additions/removals)
-
-- general configuration impact (establishment of new sections, changes/additions/removals)
-
-- devops impact
-
-
-## Considerations
-
-Document alternatives, concerns, ancillary or related issues, questions that arose in debate of the ADR. 
-
-Indicate if/how they were resolved or mollified.
+- La gestion d'une map aléatoire avec des obstacles, des minerais ainsi que des énergies.
 
 
 ## Decision
 
-Document any agreed upon important implementation detail, caveats, future considerations, remaining or deferred design issues.
-
-Document any part of the requirements not satisfied by the proposed design.
-
-
-## Other Related ADRs
-
-List any relevant ADRs - such as a design decision for a sub-component of a feature, a design deprecated as a result of this design, etc.. 
-
-Format:
-
-- \[ADR Title\]\(URL\) - Relevance
-
-
-## References
-
-List additional references.
-
-Format:
-
-- \[Title\]\(URL\)
-
+Lors de la création de ce projet, le système d'implémentation de la map ainsi que des robots n'étaient pas une grande difficultés, la plus grande difficulté rencontré à été la gestion des threads safe afin de convenir d'un code fonctionnel et d'un meilleur design pattern.
+Concernant le path finding, cette fonctionnalité n'a pas pu être implémenter à cause d'un manque de connaissance pour faire fonctionner cette fonctionnalité. 
