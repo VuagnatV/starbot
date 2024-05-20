@@ -62,8 +62,6 @@ Describe:
 
 ## Proposed Design
 
-Details of the design (without getting into implementation where possible).
-
 Outline:
 
 - services/modules to be impacted (changed)
