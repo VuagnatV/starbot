@@ -19,7 +19,7 @@ Exemple d'utilisation :
 
 pour lancer le projet
 - cargo run
-- 
+  
 pour terminer la simulation
 - Ctrl + C 
 
