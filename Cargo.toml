@@ -1,5 +1,5 @@
 [package]
-name = "robotest"
+name = "starbot"
 version = "0.1.0"
 edition = "2021"
 
@@ -11,3 +11,4 @@ rayon = "1.5"
 actix = "0.12"
 actix-rt = "2.5"
 noise = "0.7"
+pathfinding = "3.0"
