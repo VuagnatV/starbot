@@ -6,12 +6,13 @@ use std::fmt::Write as FmtWrite;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-const MAP_WIDTH: usize = 10;
-const MAP_HEIGHT: usize = 10;
+const MAP_WIDTH: usize = 20;
+const MAP_HEIGHT: usize = 20;
 const NOISE_SCALE: f64 = 0.1;
 
 #[derive(Clone, Copy, PartialEq)]
 enum Cell {
+    Unknown,
     Empty,
     Base,
     Obstacle,
@@ -22,6 +23,7 @@ enum Cell {
 impl Cell {
     fn to_char(self) -> char {
         match self {
+            Cell::Unknown => '?',
             Cell::Empty => '.',
             Cell::Base => 'B',
             Cell::Obstacle => '#',
@@ -113,6 +115,11 @@ impl Map {
             || grid[pos.1][pos.0] == Cell::Base
     }
 
+    fn get_cell(&self, pos: (usize, usize)) -> Cell {
+        let grid = self.grid.lock().unwrap();
+        grid[pos.1][pos.0]
+    }
+
     fn find_base_position(&self) -> Option<(usize, usize)> {
         let grid = self.grid.lock().unwrap();
         for y in 0..MAP_HEIGHT {
@@ -130,13 +137,63 @@ struct Robot {
     id: usize,
     position: (usize, usize),
     map: Map,
+    personal_map: Vec<Vec<Cell>>,
+    base_map: Arc<Mutex<Vec<Vec<Cell>>>>,
 }
 
 impl Robot {
-    fn new(id: usize, map: Map) -> Self {
+    fn new(id: usize, map: Map, base_map: Arc<Mutex<Vec<Vec<Cell>>>>) -> Self {
         let position = map.find_base_position().unwrap();
         map.update_position(id, position);
-        Robot { id, position, map }
+        let mut personal_map = vec![vec![Cell::Unknown; MAP_WIDTH]; MAP_HEIGHT];
+        personal_map[position.1][position.0] = Cell::Base;
+        Robot {
+            id,
+            position,
+            map,
+            personal_map,
+            base_map,
+        }
+    }
+
+    fn update_personal_map(&mut self, pos: (usize, usize)) {
+        let cell = self.map.get_cell(pos);
+        self.personal_map[pos.1][pos.0] = cell;
+    }
+
+    fn merge_maps(&mut self) {
+        let base_map = self.base_map.lock().unwrap();
+        for y in 0..MAP_HEIGHT {
+            for x in 0..MAP_WIDTH {
+                if self.personal_map[y][x] == Cell::Unknown && base_map[y][x] != Cell::Unknown {
+                    self.personal_map[y][x] = base_map[y][x];
+                }
+            }
+        }
+    }
+
+    fn update_base_map(&self) {
+        let mut base_map = self.base_map.lock().unwrap();
+        for y in 0..MAP_HEIGHT {
+            for x in 0..MAP_WIDTH {
+                if base_map[y][x] == Cell::Unknown && self.personal_map[y][x] != Cell::Unknown {
+                    base_map[y][x] = self.personal_map[y][x];
+                }
+            }
+        }
+    }
+
+    fn display_base_map(&self) {
+        //clear_terminal();
+        let base_map = self.base_map.lock().unwrap();
+        let mut map_display = String::new();
+        for row in base_map.iter() {
+            for &cell in row.iter() {
+                let _ = write!(map_display, "{} ", cell.to_char());
+            }
+            let _ = write!(map_display, "\n");
+        }
+        print!("{}\n", map_display);
     }
 }
 
@@ -174,7 +231,15 @@ impl Handler<Start> for Robot {
                 act.position = new_position;
             }
 
+            if act.map.grid.lock().unwrap()[new_position.1][new_position.0] == Cell::Base {
+                act.update_base_map();
+                act.merge_maps();
+            }
+
+            act.update_personal_map(new_position);
+
             act.map.display();
+            //act.display_base_map();
         });
     }
 }
@@ -183,10 +248,13 @@ impl Handler<Start> for Robot {
 async fn main() {
     let num_robots = 5;
     let map = Map::new();
+    let base_map = Arc::new(Mutex::new(vec![vec![Cell::Unknown; MAP_WIDTH]; MAP_HEIGHT]));
+    let base_position = map.find_base_position().unwrap();
+    base_map.lock().unwrap()[base_position.1][base_position.0] = Cell::Base;
     let mut robots = vec![];
 
     for id in 1..=num_robots {
-        let robot = Robot::new(id, map.clone()).start();
+        let robot = Robot::new(id, map.clone(), base_map.clone()).start();
         robot.do_send(Start);
         robots.push(robot);
     }
