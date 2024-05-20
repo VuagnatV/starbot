@@ -1,146 +1,166 @@
 use noise::{NoiseFn, Perlin, Seedable};
-use rand::{seq::SliceRandom, thread_rng, Rng};
-use std::{collections::HashMap, fmt::Display, sync::mpsc::Receiver};
+use rand::Rng;
+use std::collections::HashMap;
+use std::fmt::Write as FmtWrite;
+use std::sync::{Arc, Mutex};
 
+pub const MAP_WIDTH: usize = 20;
+pub const MAP_HEIGHT: usize = 20;
+const NOISE_SCALE: f64 = 0.1; // Scale for the Perlin noise
 
-use crate::renderer::Renderer;
-use crate::message::Message;
-use crate::NB_ROBOTS;
+const NUM_MINERALS: usize = 5;
+const NUM_ENERGY: usize = 5;
+const NUM_SCIENCE_POI: usize = 3;
 
-
-
-
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum CellType {
-    Blank,
-    Robot(u32),
-    Obstacle,
+#[derive(Clone, Copy, PartialEq)]
+pub enum Cell {
+    Unknown,
+    Empty,
     Base,
-    Minerai,
-    Energie,
+    Obstacle,
+    Mineral,
+    Energy,
+    SciencePOI,
+    Robot(usize),
 }
 
-impl Display for CellType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let c = match self {
-            CellType::Blank => ' ',
-            CellType::Robot(id) => {
-                if (0..10).contains(id) {
-                    (48 + *id as u8) as char
+impl Cell {
+    pub fn to_char(self) -> char {
+        match self {
+            Cell::Unknown => '?',
+            Cell::Empty => '.',
+            Cell::Base => 'B',
+            Cell::Obstacle => '#',
+            Cell::Mineral => 'M',
+            Cell::Energy => 'E',
+            Cell::SciencePOI => 'S',
+            Cell::Robot(id) => char::from_digit(id as u32, 10).unwrap_or('X'),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct Map {
+    pub grid: Arc<Mutex<Vec<Vec<Cell>>>>,
+    robots: Arc<Mutex<HashMap<usize, (usize, usize)>>>,
+}
+
+impl Map {
+    pub fn new() -> Self {
+        let mut rng = rand::thread_rng();
+        let seed = rng.gen();
+        let perlin = Perlin::new().set_seed(seed);
+        let mut grid = vec![vec![Cell::Empty; MAP_WIDTH]; MAP_HEIGHT];
+        let robots = Arc::new(Mutex::new(HashMap::new()));
+
+        for y in 0..MAP_HEIGHT {
+            for x in 0..MAP_WIDTH {
+                if x == 0 || y == 0 || x == MAP_WIDTH - 1 || y == MAP_HEIGHT - 1 {
+                    grid[y][x] = Cell::Obstacle;
                 } else {
-                    '?'
+                    let noise_value = perlin.get([x as f64 * NOISE_SCALE, y as f64 * NOISE_SCALE]);
+                    if noise_value > 0.2 {
+                        grid[y][x] = Cell::Obstacle;
+                    }
                 }
             }
-            CellType::Obstacle => 'X',
-            CellType::Base => 'B',
-            CellType::Energie => 'E',
-            CellType::Minerai => 'M',
+        }
+
+        let (base_x, base_y) = loop {
+            let x = rng.gen_range(1..MAP_WIDTH - 1);
+            let y = rng.gen_range(1..MAP_HEIGHT - 1);
+            if grid[y][x] == Cell::Empty {
+                break (x, y);
+            }
         };
-        write!(f, "{}", c)
-    }
-}
+        grid[base_y][base_x] = Cell::Base;
 
-pub type Map2D = Vec<Vec<CellType>>;
-pub type Position = (i32, i32);
-
-pub const INITIAL_POSITION: Position = (10, 10);
-pub const MAX_HEIGHT: i32 = 20;
-pub const MAX_WIDTH: i32 = 20;
-pub const MIN_HEIGHT: i32 = 0;
-pub const MIN_WEIGHT: i32 = 0;
-pub const NUM_MINERAI: usize = 5;
-pub const NUM_ENERGIE: usize = 5;
-
-pub fn initialize_map() -> Map2D {
-    let mut rng = thread_rng();
-    let random_seed = rng.gen();
-
-    let perlin = Perlin::new().set_seed(random_seed);
-
-    let mut map = vec![vec![CellType::Blank; MAX_WIDTH as usize]; MAX_HEIGHT as usize];
-
-    for y in 0..MAX_HEIGHT as usize {
-        for x in 0..MAX_WIDTH as usize {
-            if y == 0 || y == MAX_HEIGHT as usize - 1 || x == 0 || x == MAX_WIDTH as usize - 1 {
-                map[y][x] = CellType::Obstacle;
-            } else {
-                let noise_value = perlin.get([x as f64 / 10.0, y as f64 / 10.0]);
-                if noise_value > 0.5 {
-                    map[y][x] = CellType::Obstacle;
-                } else {
-                    map[y][x] = CellType::Blank;
+        fn place_resources(grid: &mut Vec<Vec<Cell>>, resource: Cell, count: usize) {
+            let mut rng = rand::thread_rng();
+            let mut placed = 0;
+            while placed < count {
+                let x = rng.gen_range(1..MAP_WIDTH - 1);
+                let y = rng.gen_range(1..MAP_HEIGHT - 1);
+                if grid[y][x] == Cell::Empty {
+                    grid[y][x] = resource;
+                    placed += 1;
                 }
             }
         }
+
+        place_resources(&mut grid, Cell::Mineral, NUM_MINERALS);
+        place_resources(&mut grid, Cell::Energy, NUM_ENERGY);
+        place_resources(&mut grid, Cell::SciencePOI, NUM_SCIENCE_POI);
+
+        Map {
+            grid: Arc::new(Mutex::new(grid)),
+            robots,
+        }
     }
-    let mut available_positions = Vec::new();
-    for y in 1..(MAX_HEIGHT as usize - 1) {
-        for x in 1..(MAX_WIDTH as usize - 1) {
-            if map[y][x] == CellType::Blank {
-                available_positions.push((x, y));
+
+    pub fn display(&self) {
+        clear_terminal();
+        let grid = self.grid.lock().unwrap();
+        let robots = self.robots.lock().unwrap();
+        let mut display_grid = grid.clone();
+        for (id, position) in robots.iter() {
+            display_grid[position.1][position.0] = Cell::Empty;
+            display_grid[position.1][position.0] = Cell::Robot(*id);
+        }
+        let mut map_display = String::new();
+        for row in display_grid.iter() {
+            for &cell in row.iter() {
+                let _ = write!(map_display, "{} ", cell.to_char());
+            }
+            let _ = write!(map_display, "\n");
+        }
+        print!("{}\n", map_display);
+    }
+
+    pub fn update_position(&self, id: usize, new_pos: (usize, usize)) {
+        let mut robots = self.robots.lock().unwrap();
+        robots.insert(id, new_pos);
+    }
+
+    pub fn is_empty_or_walkable(&self, pos: (usize, usize)) -> bool {
+        let grid = self.grid.lock().unwrap();
+        if grid[pos.1][pos.0] == Cell::Obstacle {
+            return false;
+        }
+        true
+    }
+
+    pub fn find_base_position(&self) -> Option<(usize, usize)> {
+        let grid = self.grid.lock().unwrap();
+        for y in 0..MAP_HEIGHT {
+            for x in 0..MAP_WIDTH {
+                if grid[y][x] == Cell::Base {
+                    return Some((x, y));
+                }
             }
         }
+        None
     }
-    available_positions.shuffle(&mut rng);
-    if let Some((x, y)) = available_positions.pop() {
-        map[y][x] = CellType::Base;
+
+    pub fn get_cell(&self, pos: (usize, usize)) -> Cell {
+        let grid = self.grid.lock().unwrap();
+        grid[pos.1][pos.0]
     }
-    for _ in 0..NUM_MINERAI {
-        if let Some((x, y)) = available_positions.pop() {
-            map[y][x] = CellType::Minerai;
+
+    pub fn pick_up_resource(&self, pos: (usize, usize)) -> Option<Cell> {
+        let mut grid = self.grid.lock().unwrap();
+        match grid[pos.1][pos.0] {
+            Cell::Mineral | Cell::Energy | Cell::SciencePOI => {
+                let resource = grid[pos.1][pos.0];
+                grid[pos.1][pos.0] = Cell::Empty;
+                Some(resource)
+            }
+            _ => None,
         }
     }
-    for _ in 0..NUM_ENERGIE {
-        if let Some((x, y)) = available_positions.pop() {
-            map[y][x] = CellType::Energie;
-        }
-    }
-    map
 }
 
-pub fn clean_map(map: &mut Map2D) {
-    map.iter_mut()
-        .for_each(|row| row.iter_mut().for_each(|c| *c = CellType::Blank));
-}
-
-pub fn initialize_positions() -> HashMap<u32, (i32, i32)> {
-    let mut positions = HashMap::new();
-    for id in 0..NB_ROBOTS {
-        positions.insert(id, INITIAL_POSITION);
-    }
-    positions
-}
-
-pub fn update_and_draw_map(
-    rx: &Receiver<Message>,
-    positions: &mut HashMap<u32, Position>,
-    map: &mut Map2D,
-    renderer: &dyn Renderer,
-) {
-    if let Ok(Message::NewPosition { id, dx, dy }) = rx.recv() {
-        let mut display_map = map.clone();
-        update_positions_map(positions, map, &mut display_map, id, dx, dy);
-
-        renderer.clean();
-        renderer.draw_map(&display_map);
-    }
-}
-
-pub fn update_positions_map(
-    positions: &mut HashMap<u32, Position>,
-    map: &mut Map2D,
-    display_map: &mut Map2D,
-    id: u32,
-    dx: i32,
-    dy: i32,
-) {
-    if let Some(position) = positions.get_mut(&id) {
-        position.0 = (position.0 + dx).clamp(MIN_WEIGHT, MAX_WIDTH - 1);
-        position.1 = (position.1 + dy).clamp(MIN_HEIGHT, MAX_HEIGHT - 1);
-    }
-
-    for (id, position) in positions {
-        display_map[position.0 as usize][position.1 as usize] = CellType::Robot(*id);
-    }
+fn clear_terminal() {
+    print!("{}[2J", 27 as char);
+    print!("{}[H", 27 as char);
 }

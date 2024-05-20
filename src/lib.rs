@@ -1,6 +1,7 @@
+pub mod base;
 pub mod map;
-pub mod renderer;
-pub mod utils;
-pub mod message;
+pub mod robot;
 
-pub const NB_ROBOTS: u32 = 5;
+pub use base::Base;
+pub use map::{Cell, Map, MAP_HEIGHT, MAP_WIDTH};
+pub use robot::{Robot, Start};
