@@ -10,13 +10,19 @@ const MAP_WIDTH: usize = 20;
 const MAP_HEIGHT: usize = 20;
 const NOISE_SCALE: f64 = 0.1;
 
+const NUM_MINERALS: usize = 5;
+const NUM_ENERGY: usize = 5;
+const NUM_SCIENCE_POI: usize = 3;
+
 #[derive(Clone, Copy, PartialEq)]
 enum Cell {
     Unknown,
     Empty,
     Base,
     Obstacle,
-    Resource,
+    Mineral,
+    Energy,
+    SciencePOI,
     Robot(usize),
 }
 
@@ -27,7 +33,9 @@ impl Cell {
             Cell::Empty => '.',
             Cell::Base => 'B',
             Cell::Obstacle => '#',
-            Cell::Resource => 'R',
+            Cell::Mineral => 'M',
+            Cell::Energy => 'E',
+            Cell::SciencePOI => 'S',
             Cell::Robot(id) => char::from_digit(id as u32, 10).unwrap_or('X'),
         }
     }
@@ -69,14 +77,22 @@ impl Map {
         };
         grid[base_y][base_x] = Cell::Base;
 
-        let (resource_x, resource_y) = loop {
-            let x = rng.gen_range(1..MAP_WIDTH - 1);
-            let y = rng.gen_range(1..MAP_HEIGHT - 1);
-            if grid[y][x] == Cell::Empty {
-                break (x, y);
+        fn place_resources(grid: &mut Vec<Vec<Cell>>, resource: Cell, count: usize) {
+            let mut rng = rand::thread_rng();
+            let mut placed = 0;
+            while placed < count {
+                let x = rng.gen_range(1..MAP_WIDTH - 1);
+                let y = rng.gen_range(1..MAP_HEIGHT - 1);
+                if grid[y][x] == Cell::Empty {
+                    grid[y][x] = resource;
+                    placed += 1;
+                }
             }
-        };
-        grid[resource_y][resource_x] = Cell::Resource;
+        }
+
+        place_resources(&mut grid, Cell::Mineral, NUM_MINERALS);
+        place_resources(&mut grid, Cell::Energy, NUM_ENERGY);
+        place_resources(&mut grid, Cell::SciencePOI, NUM_SCIENCE_POI);
 
         Map {
             grid: Arc::new(Mutex::new(grid)),
@@ -110,9 +126,10 @@ impl Map {
 
     fn is_empty_or_walkable(&self, pos: (usize, usize)) -> bool {
         let grid = self.grid.lock().unwrap();
-        grid[pos.1][pos.0] == Cell::Empty
-            || grid[pos.1][pos.0] == Cell::Resource
-            || grid[pos.1][pos.0] == Cell::Base
+        if grid[pos.1][pos.0] == Cell::Obstacle {
+            return false;
+        }
+        true
     }
 
     fn get_cell(&self, pos: (usize, usize)) -> Cell {
