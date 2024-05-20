@@ -148,6 +148,18 @@ impl Map {
         }
         None
     }
+
+    fn pick_up_resource(&self, pos: (usize, usize)) -> Option<Cell> {
+        let mut grid = self.grid.lock().unwrap();
+        match grid[pos.1][pos.0] {
+            Cell::Mineral | Cell::Energy | Cell::SciencePOI => {
+                let resource = grid[pos.1][pos.0];
+                grid[pos.1][pos.0] = Cell::Empty;
+                Some(resource)
+            }
+            _ => None,
+        }
+    }
 }
 
 struct Robot {
@@ -156,6 +168,7 @@ struct Robot {
     map: Map,
     personal_map: Vec<Vec<Cell>>,
     base_map: Arc<Mutex<Vec<Vec<Cell>>>>,
+    carrying: Option<Cell>,
 }
 
 impl Robot {
@@ -170,6 +183,7 @@ impl Robot {
             map,
             personal_map,
             base_map,
+            carrying: None,
         }
     }
 
@@ -246,6 +260,12 @@ impl Handler<Start> for Robot {
             if act.map.is_empty_or_walkable(new_position) {
                 act.map.update_position(act.id, new_position);
                 act.position = new_position;
+
+                if act.carrying.is_none() {
+                    if let Some(resource) = act.map.pick_up_resource(new_position) {
+                        act.carrying = Some(resource);
+                    }
+                }
             }
 
             if act.map.grid.lock().unwrap()[new_position.1][new_position.0] == Cell::Base {
