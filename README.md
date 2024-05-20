@@ -4,10 +4,14 @@
 Starbot est un projet d'entraînement au Rust dans lequel se trouve une simulation avec des robots qui parcourent une planète pour récupérer des ressources et les ramener à leur base.
 
 ## Table des Matières
+- [Equipe](#equipe)
 - [Installation](#installation)
 - [Usage](#usage)
 - [Fonctionnalités](#fonctionnalités)
 
+## Equipe
+- Vincent VUAGNAT
+- Samir BOUKRI
 
 ## Installation
 ### Prérequis
