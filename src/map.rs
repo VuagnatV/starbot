@@ -42,7 +42,7 @@ impl Cell {
 #[derive(Clone)]
 pub struct Map {
     pub grid: Arc<Mutex<Vec<Vec<Cell>>>>,
-    robots: Arc<Mutex<HashMap<usize, (usize, usize)>>>, // Robot positions
+    robots: Arc<Mutex<HashMap<usize, (usize, usize)>>>,
 }
 
 impl Map {
@@ -53,11 +53,9 @@ impl Map {
         let mut grid = vec![vec![Cell::Empty; MAP_WIDTH]; MAP_HEIGHT];
         let robots = Arc::new(Mutex::new(HashMap::new()));
 
-        // Use Perlin noise to place obstacles inside the map
         for y in 0..MAP_HEIGHT {
             for x in 0..MAP_WIDTH {
                 if x == 0 || y == 0 || x == MAP_WIDTH - 1 || y == MAP_HEIGHT - 1 {
-                    // Place obstacles on the borders
                     grid[y][x] = Cell::Obstacle;
                 } else {
                     let noise_value = perlin.get([x as f64 * NOISE_SCALE, y as f64 * NOISE_SCALE]);
@@ -68,7 +66,6 @@ impl Map {
             }
         }
 
-        // Randomly place the base in a valid position
         let (base_x, base_y) = loop {
             let x = rng.gen_range(1..MAP_WIDTH - 1);
             let y = rng.gen_range(1..MAP_HEIGHT - 1);
@@ -78,7 +75,6 @@ impl Map {
         };
         grid[base_y][base_x] = Cell::Base;
 
-        // Function to place resources
         fn place_resources(grid: &mut Vec<Vec<Cell>>, resource: Cell, count: usize) {
             let mut rng = rand::thread_rng();
             let mut placed = 0;
@@ -92,7 +88,6 @@ impl Map {
             }
         }
 
-        // Place different types of resources
         place_resources(&mut grid, Cell::Mineral, NUM_MINERALS);
         place_resources(&mut grid, Cell::Energy, NUM_ENERGY);
         place_resources(&mut grid, Cell::SciencePOI, NUM_SCIENCE_POI);

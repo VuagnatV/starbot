@@ -52,7 +52,7 @@ impl Robot {
                 if self.personal_map[y][x] == Cell::Unknown && base_map[y][x] != Cell::Unknown {
                     self.personal_map[y][x] = base_map[y][x];
                 }
-                if self.personal_map[y][x] == Cell::Empty && base_map[y][x] != Cell::Empty {
+                if self.personal_map[y][x] != Cell::Empty && base_map[y][x] == Cell::Empty {
                     self.personal_map[y][x] = base_map[y][x];
                 }
             }
@@ -66,7 +66,7 @@ impl Robot {
                 if base_map[y][x] == Cell::Unknown && self.personal_map[y][x] != Cell::Unknown {
                     base_map[y][x] = self.personal_map[y][x];
                 }
-                if base_map[y][x] == Cell::Empty && self.personal_map[y][x] != Cell::Empty {
+                if base_map[y][x] != Cell::Empty && self.personal_map[y][x] == Cell::Empty {
                     base_map[y][x] = self.personal_map[y][x];
                 }
             }
@@ -85,7 +85,7 @@ impl Robot {
         }
         print!("{}\n", map_display);
         let base = self.base.lock().unwrap();
-        //base.display_resources();
+        base.display_resources();
     }
 }
 
