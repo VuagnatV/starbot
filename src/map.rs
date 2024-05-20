@@ -12,7 +12,7 @@ const NUM_MINERALS: usize = 5;
 const NUM_ENERGY: usize = 5;
 const NUM_SCIENCE_POI: usize = 3;
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Cell {
     Unknown,
     Empty,
